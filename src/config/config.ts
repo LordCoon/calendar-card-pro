@@ -94,6 +94,13 @@ export function normalizeEntities(
         show_time?: boolean;
         show_location?: boolean;
         max_events_to_show?: number;
+        events_config?: Array<{
+          summary_filter: string;
+          label?: string;
+          color?: string;
+          accent_color?: string;
+          opacity?: number;
+        }>
       }
   >,
 ): Array<Types.EntityConfig> {
@@ -119,7 +126,14 @@ export function normalizeEntities(
           show_time: item.show_time,
           show_location: item.show_location,
           max_events_to_show: item.max_events_to_show, // Include in normalization
-        };
+          events_config: item.events_config ? item.events_config.map(eventConfig => ({
+            summary_filter: eventConfig.summary_filter,
+            label: eventConfig.label,
+            color: eventConfig.color,
+            accent_color: eventConfig.accent_color,
+            opacity: eventConfig.opacity,
+          })) : undefined
+        } as Types.EntityConfig;
       }
       return null;
     })

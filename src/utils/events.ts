@@ -88,52 +88,60 @@ export function groupEventsByDay(
   const todayEnd = new Date(todayStart);
   todayEnd.setHours(23, 59, 59, 999);
 
-  const upcomingEvents = events.filter((event) => {
-    if (!event?.start || !event?.end) return false;
+  const upcomingEvents = events
+    .filter((event)=> (event?.start && event?.end))
+    .map(event => {
+      const isAllDayEvent = !event.start.dateTime;
 
-    const isAllDayEvent = !event.start.dateTime;
-
-    let startDate: Date | null;
-    let endDate: Date | null;
-
-    if (isAllDayEvent) {
-      // Use special parsing for all-day events that preserves correct day
-      startDate = event.start.date ? FormatUtils.parseAllDayDate(event.start.date) : null;
-      endDate = event.end.date ? FormatUtils.parseAllDayDate(event.end.date) : null;
-
-      // Adjust end date for all-day events (which is exclusive in iCal format)
-      if (endDate) {
-        const adjustedEndDate = new Date(endDate);
-        adjustedEndDate.setDate(adjustedEndDate.getDate() - 1);
-        endDate = adjustedEndDate;
+      let startDate: Date | null;
+      let endDate: Date | null;
+  
+      if (isAllDayEvent) {
+        // Use special parsing for all-day events that preserves correct day
+        startDate = event.start.date ? FormatUtils.parseAllDayDate(event.start.date) : null;
+        endDate = event.end.date ? FormatUtils.parseAllDayDate(event.end.date) : null;
+  
+        // Adjust end date for all-day events (which is exclusive in iCal format)
+        if (endDate) {
+          const adjustedEndDate = new Date(endDate);
+          adjustedEndDate.setDate(adjustedEndDate.getDate() - 1);
+          endDate = adjustedEndDate;
+        }
+      } else {
+        startDate = event.start.dateTime ? new Date(event.start.dateTime) : null;
+        endDate = event.end.dateTime ? new Date(event.end.dateTime) : null;
       }
-    } else {
-      startDate = event.start.dateTime ? new Date(event.start.dateTime) : null;
-      endDate = event.end.dateTime ? new Date(event.end.dateTime) : null;
-    }
 
-    if (!startDate || !endDate) return false;
+      return {
+        ...event,
+        startDate: startDate,
+        endDate: endDate,
+        isAllDayEvent: isAllDayEvent
+      }
+    })
+    .filter((event) => {
+      if (!event.startDate || !event.endDate) return false;
 
-    const isEventToday = startDate >= todayStart && startDate <= todayEnd;
-    const isFutureEvent = startDate > todayEnd;
-    // NEW: Check if event ends today or in the future (is still ongoing)
-    const isOngoingEvent = endDate >= todayStart;
+      const isEventToday = event.startDate >= todayStart && event.startDate <= todayEnd;
+      const isFutureEvent = event.startDate > todayEnd;
+      // NEW: Check if event ends today or in the future (is still ongoing)
+      const isOngoingEvent = event.endDate >= todayStart;
 
-    // Include events that:
-    // 1. Start today or in the future, OR
-    // 2. Started in the past BUT are still ongoing
-    if (!(isEventToday || isFutureEvent || isOngoingEvent)) {
-      return false;
-    }
-
-    // Filter out ended events if not showing past events
-    if (!config.show_past_events) {
-      if (!isAllDayEvent && endDate < now) {
+      // Include events that:
+      // 1. Start today or in the future, OR
+      // 2. Started in the past BUT are still ongoing
+      if (!(isEventToday || isFutureEvent || isOngoingEvent)) {
         return false;
       }
-    }
 
-    return true;
+      // Filter out ended events if not showing past events
+      if (!config.show_past_events) {
+        if (!event.isAllDayEvent && event.endDate < now) {
+          return false;
+        }
+      }
+
+      return true;
   });
 
   // Return early if no upcoming events
@@ -143,43 +151,24 @@ export function groupEventsByDay(
 
   // Process events into days
   upcomingEvents.forEach((event) => {
-    const isAllDayEvent = !event.start.dateTime;
 
-    let startDate: Date | null;
-    let endDate: Date | null;
-
-    if (isAllDayEvent) {
-      startDate = event.start.date ? FormatUtils.parseAllDayDate(event.start.date) : null;
-      endDate = event.end.date ? FormatUtils.parseAllDayDate(event.end.date) : null;
-
-      // For all-day events, end date is exclusive in iCal format
-      if (endDate) {
-        const adjustedEndDate = new Date(endDate);
-        adjustedEndDate.setDate(adjustedEndDate.getDate() - 1);
-        endDate = adjustedEndDate;
-      }
-    } else {
-      startDate = event.start.dateTime ? new Date(event.start.dateTime) : null;
-      endDate = event.end.dateTime ? new Date(event.end.dateTime) : null;
-    }
-
-    if (!startDate || !endDate) return;
+    if (!event.startDate || !event.endDate) return;
 
     // NEW: Determine which day to display this event on
     let displayDate: Date;
 
-    if (startDate >= todayStart) {
+    if (event.startDate >= todayStart) {
       // Event starts today or in future: Display on start date
-      displayDate = startDate;
-    } else if (endDate.toDateString() === todayStart.toDateString()) {
+      displayDate = event.startDate;
+    } else if (event.endDate.toDateString() === todayStart.toDateString()) {
       // Event ends today: Display on today
       displayDate = todayStart;
-    } else if (startDate < todayStart && endDate > todayStart) {
+    } else if (event.startDate < todayStart && event.endDate > todayStart) {
       // Multi-day event that started in past and continues after today: Display on today
       displayDate = todayStart;
     } else {
       // Fallback (shouldn't happen given our filter): Display on start date
-      displayDate = startDate;
+      displayDate = event.startDate;
     }
 
     // Use displayDate for grouping instead of startDate
@@ -196,6 +185,8 @@ export function groupEventsByDay(
       };
     }
 
+    const eventConfig = getEventConfig(event._entityId, event.summary, config);
+
     eventsByDay[eventDateKey].events.push({
       summary: event.summary || '',
       time: FormatUtils.formatEventTime(event, config, language),
@@ -206,6 +197,10 @@ export function groupEventsByDay(
       end: event.end,
       _entityId: event._entityId,
       _entityLabel: getEntityLabel(event._entityId, config),
+      _eventLabel: eventConfig ? eventConfig.label : undefined,
+      _eventColor: eventConfig ? eventConfig.color : undefined,
+      _eventAccentColor: eventConfig ? eventConfig.accent_color : undefined,
+      _eventOpacity: eventConfig && eventConfig.opacity && eventConfig.opacity > 0 ? eventConfig.opacity : undefined
     });
   });
 
@@ -495,7 +490,7 @@ export function getEntityAccentColorWithOpacity(
   if (opacity === undefined || opacity === 0 || isNaN(opacity)) {
     return baseColor;
   }
-
+0
   // Convert to RGBA with the specified opacity
   return Helpers.convertToRGBA(baseColor, opacity);
 }
@@ -521,6 +516,43 @@ export function getEntityLabel(
   if (!entityConfig || typeof entityConfig === 'string') return undefined;
 
   return entityConfig.label;
+}
+
+/**
+ * Get event label from configuration based on entity ID and summary 
+ *
+ * @param entityId - The entity ID to find label for
+ * @param eventSummary - Event summary to find label for
+ * @param config - Current card configuration
+ * @returns EventConfig or undefined if not set
+ */
+export function getEventConfig(
+  entityId: string | undefined,
+  eventSummary: string | undefined,
+  config: Types.Config,
+): Types.EventConfig | undefined {
+  if (!entityId) return undefined;
+
+  const entityConfig = config.entities.find(
+    (e) =>
+      (typeof e === 'string' && e === entityId) || (typeof e === 'object' && e.entity === entityId),
+  );
+
+  if (!entityConfig || typeof entityConfig === 'string') return undefined;
+
+  if(eventSummary && entityConfig.events_config && entityConfig.events_config.length > 0){
+    const eventConfig = entityConfig.events_config.find(ef => {
+      const eventConfigFilters = ef.summary_filter.split('|').map(efc => efc.trim().toLowerCase()).filter(efc => efc);
+
+      return eventConfigFilters.some(ecf => eventSummary.toLowerCase().includes(ecf))
+    });
+
+    if(eventConfig){
+      return eventConfig;
+    }
+  }
+
+  return undefined;
 }
 
 /**
