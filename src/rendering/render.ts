@@ -16,6 +16,7 @@ import * as Types from '../config/types';
 import * as Localize from '../translations/localize';
 import * as FormatUtils from '../utils/format';
 import * as EventUtils from '../utils/events';
+import * as Helpers from '../utils/helpers';
 
 //-----------------------------------------------------------------------------
 // MAIN CARD STRUCTURE RENDERING
@@ -61,8 +62,8 @@ export function renderMainCardStructure(
       <!-- Title is always rendered with the same structure, even if empty -->
       <div class="header-container">
         ${title
-          ? html`<h1 class="card-header">${title}</h1>`
-          : html`<div class="card-header-placeholder"></div>`}
+      ? html`<h1 class="card-header">${title}</h1>`
+      : html`<div class="card-header-placeholder"></div>`}
       </div>
 
       <!-- Content container is always present -->
@@ -122,10 +123,10 @@ export function renderDay(
   return html`
     <table class="day-table ${isToday ? 'today' : 'future-day'}">
       ${repeat(
-        day.events,
-        (event, index) => `${event._entityId}-${event.summary}-${index}`,
-        (event, index) => renderEvent(event, day, index, config, language),
-      )}
+    day.events,
+    (event, index) => `${event._entityId}-${event.summary}-${index}`,
+    (event, index) => renderEvent(event, day, index, config, language),
+  )}
     </table>
   `;
 }
@@ -188,18 +189,31 @@ export function renderEvent(
   }
 
   // Get colors from config based on entity ID
-  const entityColor = EventUtils.getEntityColor(event._entityId, config);
+  const entityColor = event._eventColor ? event._eventColor : EventUtils.getEntityColor(event._entityId, config);
 
   // Get line color (solid) and background color (with opacity)
-  const entityAccentColor = EventUtils.getEntityAccentColorWithOpacity(event._entityId, config);
+  const entityAccentColor = event._eventAccentColor ? event._eventAccentColor : EventUtils.getEntityAccentColorWithOpacity(event._entityId, config);
 
   // Explicitly check if event_background_opacity is defined and greater than 0
+  const hasEventOpacity = !(event._eventOpacity === undefined || event._eventOpacity === 0 || isNaN(event._eventOpacity));
   const backgroundOpacity =
-    config.event_background_opacity > 0 ? config.event_background_opacity : 0;
-  const entityAccentBackgroundColor =
-    backgroundOpacity > 0
-      ? EventUtils.getEntityAccentColorWithOpacity(event._entityId, config, backgroundOpacity)
-      : ''; // Empty string for no background
+    hasEventOpacity ?
+      event._eventOpacity as number :
+      config.event_background_opacity > 0 ? config.event_background_opacity : 0;
+
+
+  var entityAccentBackgroundColor = "";
+  if (event._eventAccentColor) {
+    entityAccentBackgroundColor =
+      backgroundOpacity > 0
+        ? Helpers.convertToRGBA(event._eventAccentColor, backgroundOpacity)
+        : ''; // Empty string for no background
+  } else {
+    entityAccentBackgroundColor =
+      backgroundOpacity > 0
+        ? EventUtils.getEntityAccentColorWithOpacity(event._entityId, config, backgroundOpacity)
+        : ''; // Empty string for no background
+  }
 
   // Get entity-specific settings with fallback to global settings
   const showTime =
@@ -252,7 +266,7 @@ export function renderEvent(
   return html`
     <tr>
       ${index === 0
-        ? html`
+      ? html`
             <td class="date-column" rowspan="${day.events.length}">
               <div class="date-content">
                 <div class="weekday">${day.weekday}</div>
@@ -261,7 +275,7 @@ export function renderEvent(
               </div>
             </td>
           `
-        : ''}
+      : ''}
       <td
         class=${classMap(eventClasses)}
         style="border-left: var(--calendar-card-line-width-vertical) solid ${entityAccentColor}; background-color: ${entityAccentBackgroundColor};"
@@ -271,27 +285,30 @@ export function renderEvent(
             class="event-title ${isEmptyDay ? 'empty-day-title' : ''}"
             style="color: ${entityColor}"
           >
+          ${event._eventLabel
+      ? html`<span class="calendar-label">${event._eventLabel}</span> `
+      : ''}
             ${event._entityLabel
-              ? html`<span class="calendar-label">${event._entityLabel}</span> `
-              : ''}${isEmptyDay ? `✓ ${event.summary}` : event.summary}
+      ? html`<span class="calendar-label">${event._entityLabel}</span> `
+      : ''}${isEmptyDay ? `✓ ${event.summary}` : event.summary}
           </div>
           <div class="time-location">
             ${shouldShowTime
-              ? html`
+      ? html`
                   <div class="time">
                     <ha-icon icon="mdi:clock-outline"></ha-icon>
                     <span>${eventTime}</span>
                   </div>
                 `
-              : ''}
+      : ''}
             ${eventLocation
-              ? html`
+      ? html`
                   <div class="location">
                     <ha-icon icon="mdi:map-marker"></ha-icon>
                     <span>${eventLocation}</span>
                   </div>
                 `
-              : ''}
+      : ''}
           </div>
         </div>
       </td>

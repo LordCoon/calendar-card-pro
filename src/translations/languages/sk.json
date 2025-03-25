@@ -1,0 +1,14 @@
+{
+    "daysOfWeek": ["Ned", "Pon", "Uto", "Str", "Štvr", "Pia", "Sob"],
+    "fullDaysOfWeek": ["Nedeľa", "Pondelok", "Utorok", "Streda", "Štvrtok", "Piatok", "Sobota"],
+    "months": ["Jan", "Feb", "Mar", "Apr", "Máj", "Jun", "Júl", "Aug", "Sep", "Okt", "Nov", "Dec"],
+    "allDay": "all-day",
+    "multiDay": "until",
+    "at": "o",
+    "endsToday": "končí dnes",
+    "endsTomorrow": "končí zajtra",
+    "noEvents": "Žiadne ďaľšie udalosti",
+    "loading": "Načítava udalosti z kalendára...",
+    "error": "Chyba: Entity Calendar sa nenašla alebo je zle nakonfigurovaná"
+  }
+  

@@ -84,6 +84,19 @@ export interface EntityConfig {
   show_time?: boolean;
   show_location?: boolean;
   max_events_to_show?: number;
+  events_config?: Array<EventConfig>;
+}
+
+/**
+ * Summary label
+ */
+
+export interface EventConfig {
+  summary_filter: string;
+  label: string;
+  color?: string;
+  accent_color?: string;
+  opacity?: number;
 }
 
 // -----------------------------------------------------------------------------
@@ -100,6 +113,10 @@ export interface CalendarEventData {
   location?: string;
   _entityId?: string;
   _entityLabel?: string;
+  _eventLabel?: string;
+  _eventColor?: string;
+  _eventAccentColor?: string;
+  _eventOpacity?: number;
   _isEmptyDay?: boolean;
   time?: string;
 }
